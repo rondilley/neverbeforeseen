@@ -1,0 +1,57 @@
+=== Never Before Seen (NBS)
+
+by Ron Dilley <ron.dilley@uberadmin.com>
+
+For the latest information on nbs, please see:
+http://www.uberadmin.com/Projects/nbs/
+
+For the original NBS by Macus Ranum, please
+see:
+http://www.ranum.com/security/computer_security/code/
+
+== What is nbs?
+
+nbs (Never before seen) is a redux of NBS from MJR and
+it processes arbitrary text data, remembers what it has
+previosuly seen, and only shows new text data.
+
+== Why use it?
+
+I remade nbs because NBS could not compile on a current
+version of Ubuntu and it was quicker to rebuild the tool
+to meet my needs than to reverse engineer Marcus' code
+and port it.
+
+
+== Implimentation
+
+
+== Compatibility
+
+I have built and tested nbs on the following operating systems:
+
+* XXX
+
+I have confirmed that dt does not compile or run on the following:
+
+* XXX
+
+== Security Implications
+
+Assume that there are errors in the dt source that would
+allow an attacker to gain unauthorized access to your
+computer.  Don't trust this software and install and use
+it at your own risk.
+
+== Bugs
+
+I am not a programmer by any strech of the imagination.  I
+have attempted to remove the obvious bugs and other
+programmer related errors but please keep in mind the first
+sentence.  If you find an issue with code, please send me
+an e-mail with details and I will be happy to look into
+it.
+
+Ron Dilley
+ron.dilley@uberadmin.com
+
