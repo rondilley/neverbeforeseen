@@ -75,10 +75,7 @@
 #include "util.h"
 #include "mem.h"
 #include "hash.h"
-#include "processDir.h"
-#if ! defined HAVE_FTW  && ! defined HAVE_NFTW
-# include "noftw.h"
-#endif
+#include "processFile.h"
 
 /****
  *

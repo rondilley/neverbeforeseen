@@ -51,6 +51,7 @@ FILE *out;
 extern int errno;
 extern char **environ;
 extern int quit;
+extern struct hash_s *nbsHash;
 extern Config_t *config;
 
 /****
@@ -73,60 +74,18 @@ int writeRecord2File(const struct hashRec_s *hashRec) {
   struct tm *tmPtr;
 
   tmpMD = (metaData_t *)hashRec->data;
-  tmpSb = (struct stat *)&tmpMD->sb;
-  tflag = tmpSb->st_mode & S_IFMT;
 
   if (strlen(hashRec->keyString) <= 0)
     return FAILED;
 
   fprintf(out, "KEY=\"%s\"|", hashRec->keyString);
-  fprintf(out, "TYPE=%s|",
-          (tflag == S_IFDIR)
-              ? "d"
-              : (tflag == S_IFBLK)
-                    ? "blk"
-                    : (tflag == S_IFREG)
-                          ? "f"
-                          : (tflag == S_IFCHR)
-                                ? "chr"
-                                :
-#ifndef MINGW
-                                (tflag == S_IFSOCK)
-                                    ? "sok"
-                                    : (tflag == S_IFLNK)
-                                          ? "sl"
-                                          :
-#endif
-                                          (tflag == S_IFIFO) ? "fifo" : "???");
-  fprintf(out, "SIZE=%ld|", (long int)tmpSb->st_size);
-  fprintf(out, "UID=%d|", tmpSb->st_uid);
-  fprintf(out, "GID=%d|", tmpSb->st_gid);
-  fprintf(out, "PERM=%x%x%x%x|",
-#ifdef MINGW
-          tmpSb->st_mode & S_IRWXU >> 9, 0, 0, 0
-#else
-          tmpSb->st_mode >> 9 & S_IRWXO, tmpSb->st_mode >> 6 & S_IRWXO,
-          tmpSb->st_mode >> 3 & S_IRWXO, tmpSb->st_mode & S_IRWXO
-#endif
-  );
-  fprintf(out, "MTIME=%ld|", tmpSb->st_mtime);
-  fprintf(out, "ATIME=%ld|", tmpSb->st_atime);
-  fprintf(out, "CTIME=%ld|", tmpSb->st_ctime);
-  fprintf(out, "INODE=%ld|", (long int)tmpSb->st_ino);
-  fprintf(out, "HLINKS=%d|", (int)tmpSb->st_nlink);
-#ifndef MINGW
-  fprintf(out, "BLOCKS=%ld|", (long int)tmpSb->st_blocks);
-#endif
-  if (config->count && (tflag EQ S_IFREG)) {
-	  fprintf( out, "BYTECOUNT=%ld|LINECOUNT=%ld|",tmpMD->byteCount,tmpMD->lineCount);
-  } else if (config->hash && (tflag EQ S_IFREG)) {
+
     if (config->sha256_hash)
       fprintf(out, "SHA256=\"%s\"|",
-              hash2hex(tmpMD->digest, tmpBuf, config->digest_size));
+              hash2hex(tmpMD->shadigest, tmpBuf, config->digest_size));
     else
       fprintf(out, "MD5=\"%s\"|",
-              hash2hex(tmpMD->digest, tmpBuf, config->digest_size));
-  }
+              hash2hex(tmpMD->md5digest, tmpBuf, config->digest_size));
   fprintf(out, "\n");
 
   /* can use this later to interrupt traversing the hash */
@@ -139,7 +98,7 @@ int writeRecord2File(const struct hashRec_s *hashRec) {
  *
  *****/
 
-int writeDirHash2File(const struct hash_s *dirHash, const char *base,
+int writeDirHash2File(const struct hash_s *fileHash, const char *base,
                       const char *outFile) {
   struct stat sb;
   int tflag;
@@ -161,20 +120,17 @@ int writeDirHash2File(const struct hash_s *dirHash, const char *base,
   }
 
   /* write the header info */
-  fprintf(out, "%%DIFFTREE-%s\n", VERSION);
+  fprintf(out, "%%NBS-%s\n", VERSION);
   fprintf(out, "VER=%s\n", FORMAT_VERSION);
-  fprintf(out, "BASE=%s\n", base);
-  fprintf(out, "MODE=%s\n",
-          (config->hash) ? "HASH" : (config->quick) ? "QUICK" : (config->count) ? "COUNT" : "NORMAL");
   tmPtr = localtime(&config->current_time);
   fprintf(out, "START=\"%04d/%02d/%02d@%02d:%02d:%02d\"\n",
           tmPtr->tm_year + 1900, tmPtr->tm_mon + 1, tmPtr->tm_mday,
           tmPtr->tm_hour, tmPtr->tm_min, tmPtr->tm_sec);
 
   /* dump all directory tree records to a file */
-  traverseHash(dirHash, writeRecord2File);
+  traverseHash(fileHash, writeRecord2File);
 
-  fprintf(out, "RECORDS=%ld\n", (long int)dirHash->totalRecords);
+  fprintf(out, "RECORDS=%ld\n", (long int)fileHash->totalRecords);
 
   /* done */
   fclose(out);
@@ -195,7 +151,7 @@ int loadFile(const char *fName) {
 
   if ((inFile = fopen(fName, "r")) EQ NULL) {
     fprintf(stderr, "ERR - Unable to open file [%s] for reading\n", fName);
-    return (FAILED);
+    return (EXIT_FAILURE);
   }
 
   /****
@@ -206,17 +162,17 @@ int loadFile(const char *fName) {
   /* get to parsing */
   initParser();
 
-  /* DIFFTREE preamble */
-  if (fscanf(inFile, "%%DIFFTREE-%s\n", inBuf) != 1) {
-    fprintf(stderr, "ERR - File does not appear to be a DIFFTREE file\n");
+  /* preamble */
+  if (fscanf(inFile, "%%NBS-%s\n", inBuf) != 1) {
+    fprintf(stderr, "ERR - File does not appear to be a NBS file\n");
     fclose(inFile);
-    return (FAILED);
+    return (EXIT_FAILURE);
   }
 
   if (fscanf(inFile, "VER=%d\n", &fileVersion) EQ 1) {
 #ifdef DEBUG
     if (config->debug >= 2) {
-      printf("DEBUG - DT Version: %s\n", inBuf);
+      printf("DEBUG - Version: %s\n", inBuf);
       printf("DEBUG - File Version: %d\n", fileVersion);
     }
 #endif
@@ -224,7 +180,7 @@ int loadFile(const char *fName) {
       if (loadV1File(inFile) EQ FAILED) {
         deInitParser();
         fclose(inFile);
-        return (FAILED);
+        return (EXIT_FAILURE);
       }
     } else if (fileVersion EQ 2) {
       loadV2File(inFile);
@@ -235,13 +191,13 @@ int loadFile(const char *fName) {
               inBuf);
       deInitParser();
       fclose(inFile);
-      return (FAILED);
+      return (EXIT_FAILURE);
     }
   } else {
     fprintf(stderr, "ERR - File version missing, file may be corrupt\n");
     deInitParser();
     fclose(inFile);
-    return (FAILED);
+    return (EXIT_FAILURE);
   }
 
 #ifdef DEBUG
@@ -253,7 +209,7 @@ int loadFile(const char *fName) {
 
   fclose(inFile);
 
-  return (FTW_CONTINUE);
+  return (EXIT_SUCCESS);
 }
 
 /****
@@ -286,28 +242,6 @@ int loadV1File(FILE *inFile) {
    * read the headers
    *
    ****/
-
-  if (fscanf(inFile, "BASE=%s\n", inBuf) EQ 1) {
-    if (strlen(inBuf) < MAXPATHLEN) {
-      if ((compDir = XMALLOC(MAXPATHLEN + 1)) != NULL) {
-        XSTRNCPY(compDir, inBuf, MAXPATHLEN);
-#ifdef DEBUG
-        if (config->debug >= 3)
-          printf("DEBUG - Base: %s\n", compDir);
-#endif
-      }
-    } else {
-      fprintf(stderr, "ERR - Base Dir too large\n");
-      deInitParser();
-      fclose(inFile);
-      return (FAILED);
-    }
-  } else {
-    fprintf(stderr, "ERR - Base Dir missing, file may be corrupt\n");
-    deInitParser();
-    fclose(inFile);
-    return (FAILED);
-  }
 
   /* Scan mode */
   if (fgets(inBuf, sizeof(inBuf), inFile) EQ NULL) {
@@ -432,10 +366,10 @@ int loadV1File(FILE *inFile) {
         } else if (strcmp(inBuf, "RECORDS") EQ 0) {
           getParsedField(inBuf, sizeof(inBuf), i + 1);
           if (strlen(inBuf) > 0) {
-            if ((rCount = atol(inBuf)) != compDirHash->totalRecords)
+            if ((rCount = atol(inBuf)) != nbsHash->totalRecords)
               fprintf(stderr,
                       "ERR - [%ld] records in file, [%ld] records in hash\n",
-                      (long int)rCount, (long int)compDirHash->totalRecords);
+                      (long int)rCount, (long int)nbsHash->totalRecords);
 #ifdef DEBUG
             if (config->debug >= 2)
               printf("DEBUG - Records: %ld\n", rCount);
@@ -648,7 +582,8 @@ int loadV1File(FILE *inFile) {
         printf("DEBUG - Key=%s\n", keyString);
 #endif
 
-      processRecord(keyString, &sb, FILE_RECORD, digest);
+      /* XXX need to replace with nbs version */
+      //processRecord(keyString, &sb, FILE_RECORD, digest);
     }
     /********* done with line *********/
 
@@ -658,9 +593,8 @@ int loadV1File(FILE *inFile) {
 #endif
   }
 
-  printf("Read [%ld] and loaded [%ld] lines from file about [%s] dated [%s]\n",
-         (long int)count, (long int)compDirHash->totalRecords, compDir,
-         startDate);
+  printf("Read [%ld] and loaded [%ld] lines from file\n",
+         (long int)count, (long int)nbsHash->totalRecords);
 
   return (FTW_CONTINUE);
 }

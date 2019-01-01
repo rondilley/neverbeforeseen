@@ -57,10 +57,7 @@
 #include "hash.h"
 #include "md5.h"
 #include "parser.h"
-#include "processDir.h"
-#if ! defined HAVE_FTW  && ! defined HAVE_NFTW
-# include "noftw.h"
-#endif
+#include "processFile.h"
 
 /****
  *

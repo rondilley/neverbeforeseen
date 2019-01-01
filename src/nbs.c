@@ -189,13 +189,14 @@ int main(int argc, char *argv[]) {
       cleanup();
       return (EXIT_FAILURE);
     } else {
-      if ( ( inFilename = XMALLOX( inFileLen ) ) EQ NULL ) {
+      if ( ( inFilename = XMALLOC( inFileLen+1 ) ) EQ NULL ) {
         fprintf( stderr, "ERR - Unable to allocate memory for filename\n" );
-        hashFree( nbsHash );
+        freeHash( nbsHash );
         cleanup();
         return( EXIT_FAILURE );
       }
-      strncpy(inFilename, argv[optind++], PATH_MAX - 1);
+      XMEMSET( inFilename, '\0', inFileLen+1 );
+      strncpy(inFilename, argv[optind++], inFileLen);
       /* process directory tree */
       if (processFile(inFilename) EQ FAILED) {
         freeHash(nbsHash);
@@ -204,7 +205,7 @@ int main(int argc, char *argv[]) {
       }
 
       /* Prep for next dir to compare */
-      XFREE( inFileName );
+      XFREE( inFilename );
     }
   }
 

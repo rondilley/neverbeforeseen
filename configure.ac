@@ -65,6 +65,32 @@ dnl ############# System Dependencies
 
 AC_MSG_CHECKING([for special system dependencies])
 
+AC_ARG_WITH(zlib,
+        AC_HELP_STRING([--with-zlib],[allow zlib compressed modules (default=yes)]),,with_zlib=yes)
+
+if test x$with_zlib  = xyes; then
+        AC_CHECK_LIB(z, compress,,with_zlib="no")
+else
+        with_zlib="no"
+fi
+
+if test x$with_zlib = xno; then
+    AC_MSG_ERROR(either specify a valid zlib installation with --with-zlib=DIR)
+fi
+
+AC_ARG_WITH([bz2lib],
+  AS_HELP_STRING([--without-bz2lib], [Don't build support for bzip2 through bz2lib]))
+
+if test "x$with_bz2lib" != "xno"; then
+  AC_CHECK_HEADERS([bzlib.h])
+  AC_CHECK_LIB(bz2,BZ2_bzDecompressInit)
+fi
+
+if test x$with_bzip2 = xno; then
+        AM_CFLAGS="$AM_CFLAGS -DEXCLUDEBZIP2"
+        AM_CXXFLAGS="$AM_CXXFLAGS -DEXCLUDEBZIP2"
+fi
+
 AC_CANONICAL_HOST
 AC_C_CONST
 AC_PROG_GCC_TRADITIONAL
@@ -171,46 +197,51 @@ AC_CHECK_HEADERS([stdbool.h])
 AC_CHECK_HEADERS([syslog.h])
 AC_CHECK_HEADERS([unistd.h])
 AC_CHECK_HEADERS([wchar.h])
-AC_CHECK_HEADERS([ftw.h])
 AC_CHECK_HEADERS([pwd.h])
 AC_CHECK_HEADERS([signal.h])
 AC_CHECK_HEADERS([utime.h])
+AC_CHECK_HEADERS([zlib.h])
 AC_HEADER_DIRENT
 AC_HEADER_STDBOOL
 
 
 dnl ############## Function checks
 
-AC_FUNC_CLOSEDIR_VOID
-AC_FUNC_LSTAT
-AC_FUNC_MEMCMP
-AC_CHECK_FUNCS([strtoul])
+AC_CHECK_FUNCS([getopt_long])
+AC_CHECK_FUNCS([alarm])
 AC_CHECK_FUNCS([bzero])
-AC_CHECK_FUNCS([getpwuid])
+AC_CHECK_FUNCS([endgrent])
 AC_CHECK_FUNCS([endpwent])
 AC_CHECK_FUNCS([fchdir])
 AC_CHECK_FUNCS([getcwd])
+AC_CHECK_FUNCS([gethostname])
+AC_CHECK_FUNCS([inet_ntoa])
+AC_CHECK_FUNCS([localtime_r])
 AC_CHECK_FUNCS([memmove])
 AC_CHECK_FUNCS([memset])
+AC_CHECK_FUNCS([socket])
+AC_CHECK_FUNCS([strchr])
 AC_CHECK_FUNCS([strdup])
-AC_CHECK_FUNCS([gethostname])
-AC_CHECK_FUNCS([opendir])
-AC_CHECK_FUNCS([fstat])
-AC_CHECK_FUNCS([ftw])
-AC_CHECK_FUNCS([nftw],echo "nftw() found",echo "nftw() not found - using noftw()")
+AC_CHECK_FUNCS([isblank])
+AC_CHECK_FUNCS([fopen64])
+AC_CHECK_FUNCS([strerror])
+AC_CHECK_FUNCS([strstr])
+AC_CHECK_FUNCS([strtol])
 AC_CHECK_FUNCS([strncat])
 AC_CHECK_FUNCS([strlcat])
-AC_CHECK_FUNCS([snprintf])
-AC_CHECK_FUNCS([setrlimit])
+AC_CHECK_FUNCS([strrchr])
+AC_CHECK_FUNCS([strtoul])
+AC_CHECK_FUNCS([utime])
+AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, gethostbyname))
+AC_CHECK_FUNC(socket, , AC_CHECK_LIB(socket, socket))
+AC_FUNC_CLOSEDIR_VOID
+AC_FUNC_FORK
+AC_FUNC_LSTAT
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([realpath])
-AC_CHECK_FUNCS([strstr])
-AC_CHECK_FUNCS([utime])
-AC_CHECK_FUNCS([getopt_long])
-AC_CHECK_FUNCS([strerror])
-AC_CHECK_FUNCS([strrchr])
+AC_FUNC_VPRINTF
+AC_FUNC_MEMCMP
 
 dnl ############## Type checks
 
